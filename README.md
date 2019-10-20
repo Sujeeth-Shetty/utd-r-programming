@@ -1,2 +1,2 @@
 # R-Programming
-Assignments and simple projects on R
+Assignments and projects on R
