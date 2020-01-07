@@ -1,2 +1,2 @@
 # R-Programming
-Assignments and projects on R
+Business Analytics Assignments and projects using R
