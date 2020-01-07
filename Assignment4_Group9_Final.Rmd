@@ -1,0 +1,205 @@
+---
+title: "Homework4"
+author: "Group 9"
+date: "11/11/2019"
+output: pdf_document
+---
+
+##Load Packages
+```{r setup, include=FALSE}
+if(!require("rmarkdown")) install.packages("rmarkdown", repos = "http://cran.us.r-project.org")
+if(!require("latexpdf")) install.packages("latexpdf", repos = "http://cran.us.r-project.org")
+if(!require("knitr")) install.packages("knitr", repos = "http://cran.us.r-project.org")
+if(!require("tinytex"))install.packages("MiKTex", repos = "http://cran.us.r-project.org")
+library("rmarkdown")
+library("latexpdf")
+library("knitr")
+library("tinytex")
+pacman::p_load(ISLR,caret, data.table, MASS, ggplot2,dplyr,e1071, rpart, rpart.plot,leaps,gbm,randomForest)
+options(digits = 3)
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+#Load Data
+**Question 1:  Remove the observations with unknown salary information. How many observations were removed in this process? **
+```{r Load & Clean Data}
+hitters.temp.df<-Hitters
+
+sum(is.na(hitters.temp.df$Salary))
+
+hitters.df<-hitters.temp.df[!is.na(hitters.temp.df$Salary),]
+
+```
+**Answer 1: Total 59 unknown salary information has been removed**
+
+#Log-Transform
+**Question2: Generate log-transform the salaries. Can you justify this transformation? **
+```{r }
+##Skewness before log-transform
+ggplot(data = hitters.df, aes(Salary)) + geom_histogram()
+skewness(hitters.df$Salary)
+
+##Skewness after log-transform
+hitters.df["LogSalary"]<-log2(hitters.df$Salary)
+ggplot(data = hitters.df, aes(LogSalary)) + geom_histogram()
+skewness(hitters.df$LogSalary)
+```
+**Before log-transform, the graph indicates that Salary is right-skewed with skewness of 1.57 **
+**After log-transform, the data is approximately symmetric with the skewness of -0.18**
+
+#Scatter Plot
+**Question3: Create a scatterplot with Hits on the y-axis and Years on the x-axis using all the observations. Color code the observations using the log Salary variable. What patterns do you notice on this chart, if any? **
+
+```{r scatterplot}
+ggplot(hitters.df, aes(Years,Hits)) +
+  geom_point(aes(color=LogSalary)) 
+```
+**Answer3: We can infer that as the player has more years in the league their salary increases although this does not necesarrily mean the player has more hits. There are few observations which are outliers to that pattern like the two in the bottom left corner**
+
+#Liner regression
+**Question4: Run a linear regression model of Log Salary on all the predictors using the entire dataset. Use regsubsets() function to perform best subset selection from the regression model. Identify the best model using BIC. Which predictor variables are included in this (best) model?**
+
+```{r}
+
+search <- regsubsets(LogSalary ~ ., data = hitters.df[,-c(19)], nbest = 1, nvmax = dim(hitters.df)[2]-1,
+                     method = "exhaustive")
+sum <- summary(search)
+
+# show models
+sum$which
+
+# show metrics
+sum$cp
+sum$bic
+#Best Predictor
+which.min(sum$bic) #8
+which.min(sum$cp)
+
+
+plot(sum$bic, xlab = "Number of Variables", ylab = "BIC", type = "l")
+bic_min = which.min(sum$bic) # 8
+points(bic_min, sum$bic[bic_min], col = "red", cex = 2, pch = 20)
+
+#plot(search, scale= "bic")
+
+##Predictor varibale
+coef(search, 5)
+```
+**Answer4:  There are three model which share a BIC close to -159. However the model with the lowest BIC is is the 5 variable model.**
+**Following are the predictors included in this best model:**
+**Hits, Walks, Years, CHits, DivisionW **
+
+
+#Data Partition
+**Question 5: Now create a training data set consisting of 80 percent of the observations, and atest data set consisting of the remaining observations.**
+```{r}
+set.seed(42)
+train.index <- createDataPartition(hitters.df$LogSalary, p = 0.8, list = FALSE)
+train.df <- hitters.df[train.index, -c(19)]
+valid.df <- hitters.df[-train.index, -c(19)]
+```
+
+#Regression Tree
+**Question 6:Generate a regression tree of log Salary using only Years and Hits variables from the training data set. Which players are likely to receive highest salaries according to this model? Write down the rule and elaborate on it.**
+
+```{r}
+options(scipen = 999)
+
+cv.ct <- rpart(LogSalary ~ Years+Hits, data = train.df)
+printcp(cv.ct)
+#rpart.plot(cv.ct, type=4)
+prp(cv.ct, type = 1, extra = 1, split.font = 2, varlen = -10)  ##prp is different version of rpart.plot
+rpart.rules(cv.ct, cover = TRUE)
+```
+
+**Answer6: The most important factor in determining Players Salary is Years. Players who have been in the league for at least 5 years tend to make more than players who have only been in the league for less than that time. Hits also plays a factor in determining a player’s salary.**
+**The player with more than 5 years of experience and who has more than 118 hits is ikely to recive highest salary.**
+**Rule: when Years >=5 & Hits >= 118**
+
+
+#Regression Tree with Shrinkage Param
+**Question7: Now create a regression tree using all the variables in the training data set.Perform boosting on the training set with 1,000 trees for a range of values of the shrinkage parameter lambda. Produce a plot with different shrinkage values on the xaxis and the corresponding training set MSE on the y-axis.**
+```{r}
+mse_train <- c()
+gbm_models <- list()
+shrink_params <- seq(0.001,0.1,length.out = 20)
+
+for (i in seq(shrink_params)) {
+
+  #n.tree=1000
+    gbm_models[[i]] <- gbm(LogSalary ~ ., 
+                           data = train.df, 
+                           distribution = 'gaussian',
+                           shrinkage = shrink_params[i], 
+                           n.cores = 3, 
+                           n.trees = 1000)
+    pred_train <- predict(gbm_models[[i]], train.df, n.trees = 1000)
+    
+    resid_train <- (train.df$LogSalary - pred_train)^2
+
+    mse_train[i] <- mean(resid_train)
+
+}
+summary(gbm_models[[which.min(mse_train)]])
+
+
+```
+
+
+#Plot
+**Question8: Produce a plot with different shrinkage values on the x-axis and the corresponding test set MSE on the y-axis.**
+```{r}
+d<-data_frame(mse=mse_train, lambda=shrink_params)
+
+ggplot(d, aes(lambda, mse)) + 
+    geom_point(color='tomato2')
+
+
+```
+**Answer 8: Higher the shrinkage parameter, lower the MSE**
+**Training Error(MSE) reaches a minimum of 0.109 when Lambda is 0.1**
+
+#Boosting
+**Question9: Which variables appear to be the most important predictors in the boosted model?**
+
+```{r}
+
+which.min(mse_train)
+
+var_imp <- relative.influence(gbm_models[[which.min(mse_train)]], 
+                              n.trees = 1000,
+                              scale. = TRUE)
+
+data_frame(variable = names(var_imp),
+           importance = var_imp) %>%
+    mutate(variable = reorder(variable, importance)) %>%
+    ggplot(aes(variable, importance)) + 
+    geom_col(width = 0.01, 
+             col = 'blue', 
+             alpha = 0.6) + 
+    geom_point(col = 'blue') +
+    coord_flip() +
+    #theme_tufte(base_size = 13)
+    labs(y = 'Importance', 
+         x = '', 
+         title = 'Variable Importance for Gradient Boosted Model')
+
+```
+**Answer9: Variable CHits is the most important predictor in Boosted model.**
+
+#Bagging
+**Question10: Now apply bagging to the training set. What is the test set MSE for this approach?**
+```{r}
+set.seed(42)
+##bag.hitters <- randomForest(LogSalary~., data=hitters.df, subset=train.df, mtry = 19, importance = TRUE)  # mtry: number of predictors
+bag.hitters <- randomForest(LogSalary~., data=train.df, mtry = 19, importance = TRUE)  # mtry: number of predictors
+
+bag.hitters
+
+yhat.bag <- predict(bag.hitters, newdata=valid.df)
+yhat.bag
+#plot(yhat.bag, valid.df)
+#abline(0,1)
+mean((yhat.bag-valid.df$LogSalary)^2)
+```
+**Answer10: The validation set MSE after applying Bagging is 0.267**
