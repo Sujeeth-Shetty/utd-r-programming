@@ -1,0 +1,215 @@
+---
+title: "HW1"
+output: pdf_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+##Load Packages
+```{r loadPackages, warning=FALSE, message=FALSE, results='hide'}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse,reshape,ggplots,ggmap,
+               mblench,data.table)
+search()
+theme_set(theme_classic())
+```
+
+## Read unitlies data
+
+```{r readData}
+#read in Utilities.csv
+utilities.df <- fread("Utilities.csv")
+str(utilities.df)
+
+#data.table
+utilities.dt <- setDT(utilities.df)
+str(utilities.dt)
+summary(utilities.dt)
+```
+
+
+### 1) min,max,mean,median,std deviation
+
+```{r question1}
+
+class(utilities.dt[,Fuel_Cost])
+
+#get numeric dat table
+numeric.utilities.dt <- utilities.dt[, !c("Company")]
+
+#Mean of all columns
+numeric.utilities.dt[, lapply(.SD, mean)]
+
+#standard deviation of all varibales
+numeric.utilities.dt[, lapply(.SD, sd)]
+
+#min of all varibales
+numeric.utilities.dt[, lapply(.SD, min)]
+
+#max of all varibales
+numeric.utilities.dt[, lapply(.SD, max)]
+
+#median of all variables
+numeric.utilities.dt[, lapply(.SD, median)]
+
+# Compute Statistics - mean, standard dev, min, max, median of Fixed_charge
+numeric.utilities.dt[,.(mean=mean(Fixed_charge),sd=sd(Fixed_charge),minimum=min(Fixed_charge)
+                ,maximum=max(Fixed_charge),median=median(Fixed_charge),length=length(Fixed_charge))]
+
+
+# Compute Statistics - mean, standard dev, min, max, median of RoR
+utilities.dt[,.(mean=mean(RoR),sd=sd(RoR),minimum=min(RoR)
+                ,maximum=max(RoR),median=median(RoR),length=length(RoR))]
+
+# Compute Statistics - mean, standard dev, min, max, median of Cost
+utilities.dt[,.(mean=mean(Cost),sd=sd(Cost),minimum=min(Cost)
+                ,maximum=max(Cost),median=median(Cost),length=length(Cost))]
+
+# Compute Statistics - mean, standard dev, min, max, median of load_factor
+utilities.dt[,.(mean=mean(Load_factor),sd=sd(Load_factor),minimum=min(Load_factor)
+                ,maximum=max(Load_factor),median=median(Load_factor),length=length(Load_factor))]
+
+# Compute Statistics - mean, standard dev, min, max, median of demand_growth
+utilities.dt[,.(mean=mean(Demand_growth),sd=sd(Demand_growth),minimum=min(Demand_growth)
+                ,maximum=max(Demand_growth),median=median(Demand_growth),length=length(Demand_growth))]
+
+# Compute Statistics - mean, standard dev, min, max, median of Sales
+utilities.dt[,.(mean=mean(Sales),sd=sd(Sales),minimum=min(Sales)
+                ,maximum=max(Sales),median=median(Sales),length=length(Sales))]
+
+
+# Compute Statistics - mean, standard dev, min, max, median of Nuclear
+utilities.dt[,.(mean=mean(Nuclear),sd=sd(Nuclear),minimum=min(Nuclear)
+                ,maximum=max(Nuclear),median=median(Nuclear),length=length(Nuclear))]
+
+
+# Compute Statistics - mean, standard dev, min, max, median of Fuel_cost
+utilities.dt[,.(mean=mean(Fuel_Cost),sd=sd(Fuel_Cost),minimum=min(Fuel_Cost)
+                ,maximum=max(Fuel_Cost),median=median(Fuel_Cost),length=length(Fuel_Cost))]
+
+
+print("Sales has the largest variability. The values in Sales variable are more spread apart which can be depicted from Satandard Deviation(s=3549.984)")
+```
+
+##Boxplots for each numeric varibales
+```{r BoxPlots}
+#Boxplot for Fixed Charge
+ggplot(utilities.dt)+
+  geom_boxplot(aes(x="",y=Fixed_charge), fill="gold1", outlier.colour = "firebrick2")+
+  ylab("Fixed Charge income/debt") + ggtitle("Fixed Charge Boxplot")
+
+#utilities.dt[, sum(!is.na(Fixed_charge))]
+
+#Boxplot for Rate of return
+ggplot(utilities.dt)+
+  geom_boxplot(aes(x="",y=RoR), fill="gold2", outlier.colour = "firebrick2")+
+  ylab("Rate of Return") + ggtitle("Rate of Return Boxplot")
+
+#Boxplot for Cost per kilowatt
+ggplot(utilities.dt)+
+  geom_boxplot(aes(x="",y=Cost), fill="gold3", outlier.colour = "firebrick2")+
+  ylab("Cost/kilowatt") + ggtitle("Cost Boxplot")
+
+#boxplot for Anual Load Factor
+ggplot(utilities.dt)+
+  geom_boxplot(aes(x="",y=Load_factor), fill="gold4", outlier.colour = "firebrick2")+
+  ylab("Load Factor") + ggtitle("Load Factor Boxplot")
+
+#bocplot for peak kilowatthour demand growth from 1974 to 1975
+ggplot(utilities.dt)+
+  geom_boxplot(aes(x="",y=Demand_growth), fill="gold1", outlier.colour = "firebrick2")+
+  ylab("Demand Growth") + ggtitle("Peak Kilowatt Hour Demand Growth Boxplot")
+
+#boxplot for sales (kilowatthour use per year)
+ggplot(utilities.dt)+
+  geom_boxplot(aes(x="",y=Sales), fill="gold2", outlier.colour = "firebrick2")+
+  ylab("Sales Kilowatthour/year") + ggtitle("Sales Boxplot")
+
+#utilities.dt[, sum(is.na(Sales))]
+
+#boxplot for percent nuclear
+ggplot(utilities.dt)+
+  geom_boxplot(aes(x="",y=Nuclear), fill="gold3", outlier.colour = "firebrick2")+
+  ylab("Percent Nuclear") + ggtitle("Nuclear Boxplot")
+
+#boxplot for total fuel costs (cents per kilowatthour)
+ggplot(utilities.dt)+
+  geom_boxplot(aes(x="",y=Fuel_Cost), fill="gold4", outlier.colour = "firebrick2")+
+  ylab("Fuel Cost cents/kilowatthour") + ggtitle("Fuel Cost Boxplot")
+
+print("Yes there are extreme values. The Varibale Fixed_charge and Sales has outliers which is highlighted in firebrick color.")
+
+```
+
+
+#Heatmap for numeric variables
+```{r heatmap}
+#heatmap(utilities.dt$Cost , Rowv = NULL, Colv = NULL)
+heatmap(cor(utilities.dt[,!c("Company")]), Rowv = NA, Colv = NA)
+
+num.utilities.df <- utilities.df[, !c("Company")]
+round(cor(num.utilities.df),2)
+
+heatmap.2(cor(num.utilities.df), dendrogram = "none", 
+          cellnote = round(cor(num.utilities.df),2), notecol = "navy", 
+          key = FALSE, trace = "none")
+
+print("Fixed_charge & RoR have positive correlation i.e higher the Fixed-charge higher the Rate of return. Sales & Fuel_Cost have high negative correlation.")
+
+# heatmap using ggplot
+# using reshape package to to generate input for the plot 
+#library(reshape)
+#cor.mat <- round(cor(utilities.dt[,!c("Company")]),2) # rounded correlation matrix 
+#melted.cor.mat <- melt(cor.mat) 
+#ggplot(data=melted.cor.mat) + 
+  #scale_fill_gradient(low="wheat", high="orangered") +
+  #geom_tile( aes(x = Cost, y = RoR, fill = value)) + 
+  #geom_text(aes(x = X1,y = X2, label = value)) +
+  #ggtitle("Which Variables Are Highly Correlated?")
+
+
+```
+
+### Principal Component Analysis using Unscaled Data
+```{r PCA, warning=FALSE}
+
+  ### compute PCs on two dimensions
+pcs <- prcomp(data.frame(utilities.df$Fixed_charge, utilities.df$RoR)) 
+pcs
+summary(pcs) 
+pcs$rot # rotation matrix
+scores <- pcs$x
+head(scores, 5)
+
+  ### PCA on 13 variables
+pcs13 <- prcomp(na.omit(utilities.df[,-c("Company")])) 
+pcs13
+summary(pcs13)
+pcs13$rot
+
+print("PC1 covers maximum proportion of variance i.e. 99%. The firs two componets accounts for 99% of the total variance. Hence using 2 components in the model may be suffiecient.")
+```
+
+## Principal Component Analysis after scaling numeric data
+```{r PCA}
+  ### PCA using Normalized variables
+pcs.cor <- prcomp(na.omit(utilities.df[,-c("Company")]), scale. = T)
+summary(pcs.cor)
+pcs.cor$rot
+print("The weights of the normalised components changed. For example Sales had the higest vakue before normalising and after normalising the value increaded to prositive in 1st component.")
+
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
