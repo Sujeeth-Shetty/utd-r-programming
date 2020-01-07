@@ -1,0 +1,210 @@
+---
+title: "Assignment3"
+author: "Group 9"
+date: '`r format(Sys.Date(), "%Y-%B-%d")`'
+editor_options: 
+  chunk_output_type: inline
+output: pdf_document
+---
+
+## Load MASS Package
+```{r loadpackages, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require("data.table")) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require("rmarkdown")) install.packages("rmarkdown", repos = "http://cran.us.r-project.org")
+if(!require("latexpdf")) install.packages("latexpdf", repos = "http://cran.us.r-project.org")
+if(!require("knitr")) install.packages("knitr", repos = "http://cran.us.r-project.org")
+if(!require("Rtools")) install.packages("Rtools", repos = "http://cran.us.r-project.org")
+if(!require("caret")) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require("MASS")) install.packages("MASS", repos = "http://cran.us.r-project.org")
+if(!require("gains")) install.packages("gains", repos = "http://cran.us.r-project.org")
+if(!require("ggplot2")) install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+if(!require("e1071")) install.packages("e1071", repos = "http://cran.us.r-project.org")
+if(!require("mlr")) install.packages("e1071", repos = "http://cran.us.r-project.org")
+if(!require("gains")) install.packages("e1071", repos = "http://cran.us.r-project.org")
+
+library("data.table")
+library("rmarkdown")
+library("latexpdf")
+library("knitr")
+library("caret")
+library("MASS")
+library("gains")
+library("ggplot2")
+library("e1071")
+library("mlr")
+library("gains")
+
+```
+
+#Load input file
+```{r readdata from Website}
+#Read in from UCI Site
+spam_df <- read.csv(url("https://archive.ics.uci.edu/ml/machine-learning-databases/spambase/spambase.data"), header = FALSE)
+
+#Rename Columns
+colnames(spam_df)<- c("word_freq_make","word_freq_address","word_freq_all","word_freq_3d","word_freq_our","word_freq_over","word_freq_remove","word_freq_internet","word_freq_order","word_freq_mail","word_freq_receive","word_freq_will","word_freq_people","word_freq_report","word_freq_addresses","word_freq_free","word_freq_business","word_freq_email","word_freq_you","word_freq_credit","word_freq_your","word_freq_font","word_freq_000","word_freq_money","word_freq_hp","word_freq_hpl","word_freq_george","word_freq_650","word_freq_lab","word_freq_labs","word_freq_telnet","word_freq_857","word_freq_data","word_freq_415","word_freq_85","word_freq_technology","word_freq_1999","word_freq_parts","word_freq_pm","word_freq_direct","word_freq_cs","word_freq_meeting","word_freq_original","word_freq_project","word_freq_re","word_freq_edu","word_freq_table","word_freq_conference","char_freq_;","char_freq_(","char_freq_[","char_freq_!","char_freq_$","char_freq_#","capital_run_length_average","capital_run_length_longest","capital_run_length_total","s_ns_class")
+
+#Print Table of Spam Values
+table(spam_df$s_ns_class)
+##spam_df$s_ns_class<-as.character(spam_df$s_ns_class)
+#View Entire Dataset as a DT
+spam_dt<- setDT(spam_df)
+spam_dt
+
+```
+##
+```{r Question 1}
+
+#Filter by Spam Classification
+
+yes_spam <- spam_dt[which(spam_dt$s_ns_class==1),1:57]
+not_spam <- spam_dt[which(spam_dt$s_ns_class == 0),1:57]
+
+#Column Averages
+
+avg_yes_spam <- colMeans(yes_spam)
+avg_not_spam <- colMeans(not_spam)
+
+#Difference Between Averages
+avg_diff_spam <- abs(avg_yes_spam - avg_not_spam)
+print("Differences between Spam and Not Spam Averages")
+avg_diff_spam
+top_diff_spam <- sort.list(avg_diff_spam, decreasing = TRUE)
+print("The Differences Listed from High to Low")
+top_diff_spam
+print("The most different averages(excluding Spam Class) are: 57, 56, 55, 27, 19, 21, 25, 16, 26, 52")
+print("1: Capital Run Length Total")
+print("2: Capital Run Length Longest")
+print("3: Capital Run Length Average")
+print("4: Word Frequency George")
+print("5: Word Frequency You")
+print("6: Word Frequency Your")
+print("7: Word Frequency HP")
+print("8: Word Frequency Free")
+print("9: Word Frequency HPL")
+print("10: Char Frequency !")
+
+#Create Set with Just Predictors
+spam_final <- spam_dt[ , c(58, 57, 56, 55, 27, 19, 21, 25, 16, 26, 52)]
+
+
+
+```
+
+```{r Question 2}
+# Split the data into training (80%) and validation/test set (20%)
+set.seed(42)
+
+# randomly order the dataset
+rows <- sample(nrow(spam_final))
+spam_final<- spam_final[rows, ]
+
+# find rows to split on
+spam_split <- round(nrow(spam_final) * 0.8)
+a<-spam_split+1
+b<-nrow(spam_final)
+spam_training <- spam_final[1:spam_split, ]
+##spam_validation <- spam_final[(split+1):nrow(spam_final), ]
+spam_validation <- spam_final[a:b, ]
+
+
+
+# Normalize the data
+    # Estimate preprocessing parameters
+norm_values  <- preProcess(spam_training[, -c(1)], method = c("center", "scale"))
+norm_values
+    # Transform the data using the estimated parameters
+spam_train_norm <- predict(norm_values, spam_training)
+spam_valid_norm <- predict(norm_values, spam_validation)
+
+
+spam_lda <- lda(s_ns_class~., spam_train_norm)
+spam_lda
+
+#What are the prior probabilities?
+print("Question 3")
+print("The prior probabilities are 0.604 for No Spam and 0.396 for Yes Spam")
+
+#What are the coefficients of linear discriminants?
+print("Question 4")
+print("The Coefficients of the Linear Discriminants are shown above.
+These are used to classify items in the data set by multiplying the
+associated variable by the coefficient and then summing them up.")
+
+#How are linear discriminants used in classifying spams and non-spams?
+print("Question 5")
+print("Linear discriminants are used to maximize separation between groups and to minimize the variation within groups")
+
+#How many LDs are there and why?
+print("Question 6")
+print("There is one LD and this is because there are only two classes or groups we're trying to separate")
+```
+
+```{r Question 7 LDA Plots}
+lda_train <- lda(s_ns_class~., data = spam_train_norm)
+plot (lda_train)
+
+lda_valid <- lda(s_ns_class~., data = spam_valid_norm)
+plot (lda_valid)
+
+print("Question 7")
+print("Both graphs show pretty good separation between the two groups as indicated by the spread of the data above and below the 0 marking.")
+```
+
+
+```{r Confusion Matrix}
+
+#Prediction Using Training Data
+
+pred_1_train <- predict(spam_lda,spam_train_norm)
+
+pred_2_valid <- predict(spam_lda,spam_valid_norm)
+
+
+#Confusion Matrix
+print("Question8: Generate the Relevant Confusion Matrix. What are the sensitivity and specificity.")
+
+spam_matrix <- table(pred_2_valid$class, spam_valid_norm$s_ns_class)
+confusionMatrix(spam_matrix)
+
+print("You can see the accuracy is 82 percentage while sensitivity is .9277 and specificity is .6676")
+
+```
+
+```{r Lift and Decile Chart}
+
+print("question 9: Generate Lift and Decile Chart")
+
+## Lift Charts
+gain <- gains(spam_validation$s_ns_class,pred_2_valid$posterior[,2],groups=dim(spam_validation)[1])
+plot(c(0, gain$cume.pct.of.total*sum(spam_validation$s_ns_class)) ~ c(0, gain$cume.obs), 
+     xlab = "# cases", ylab = "Cumulative", type="l",
+     col="blue1")
+#lines(c(0,sum(spam_validation$s_ns_class))~c(0,dim(spam_validation$s_ns_class)[1]), col="red1", lty=2)
+
+
+## Decile Lift Charts
+gain <- gains(spam_validation$s_ns_class,pred_2_valid$posterior[,2])
+gain
+barplot(gain$mean.resp / mean(spam_validation$s_ns_class), names.arg = gain$depth, xlab = "Percentile", space = 1.3,
+        ylab = "Mean Response", main = "Decile-wise lift chart", col = "seagreen", border = NA)
+
+print("The Model is showing staircase effect and is able to caputure maximum responses in the initial 30%. We're looking for in a good model.")
+```
+
+
+```{r Question 10 Lowered Threshold}
+sum(pred_2_valid$posterior[,1] >= 0.5)
+
+sum(pred_2_valid$posterior[,1] >= 0.2)
+
+spam_matrix <- table(pred_2_valid$class, spam_valid_norm$s_ns_class)
+confusionMatrix(spam_matrix, threshold=0.2)
+
+print("Question 10")
+print("As you lower the threshold the amount of items that are predicted to be spam increase. Which means the model is more inaccurate. This is not inherently good or bad as that's situational and dependent on whether you'd rather be extremely risk-averse to spam or not.")
+print("Accuracy is 82 percentage. Lowering the thereshold doesnt have any impact on the accuracy.")
+```
+
+
