@@ -1,0 +1,221 @@
+---
+title: "BUAN6356_Homework2_Group9"
+author: "Jeff Sameshima"
+date: "9/29/2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require("data.table")) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require("rmarkdown")) install.packages("rmarkdown", repos = "http://cran.us.r-project.org")
+if(!require("latexpdf")) install.packages("latexpdf", repos = "http://cran.us.r-project.org")
+if(!require("knitr")) install.packages("knitr", repos = "http://cran.us.r-project.org")
+if(!require("Rtools")) install.packages("Rtools", repos = "http://cran.us.r-project.org")
+if(!require("leaps")) install.packages("leaps", repos = "http://cran.us.r-project.org")
+if(!require("ggplot2")) install.packages("leaps", repos = "http://cran.us.r-project.org")
+if(!require("dplyr")) install.packages("dplyr", repos = "http://cran.us.r-project.org")
+if(!require("reshape")) install.packages("reshape", repos = "http://cran.us.r-project.org")
+if(!require("gplots")) install.packages("gplots", repos = "http://cran.us.r-project.org")
+if(!require("forecast")) install.packages("forecast", repos = "http://cran.us.r-project.org")
+if(!require("tidyverse")) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require("caret")) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require("corrplot")) install.packages("corrplot", repos = "http://cran.us.r-project.org")
+if(!require("glmnet")) install.packages("glmnet", repos = "http://cran.us.r-project.org")
+if(!require("mlbench")) install.packages("mlbench", repos = "http://cran.us.r-project.org")
+if(!require("TinyTex")) install.packages("TinyTex", repos = "http://cran.us.r-project.org")
+if(!require("ggmap")) install.packages("ggmap", repos = "http://cran.us.r-project.org")
+if(!require("gridextra")) install.packages("gridextra", repos = "http://cran.us.r-project.org")
+if(!require("scales")) install.packages("scales", repos = "http://cran.us.r-project.org")
+if(!require("MASS")) install.packages("MASS", repos = "http://cran.us.r-project.org")
+library(gplots)
+library(leaps)
+library(data.table)
+library(latexpdf)
+library(knitr)
+library(dplyr)
+library(ggplot2)
+library(reshape)
+library(forecast)
+library(tidyverse)
+library(caret)
+library(corrplot)
+library(glmnet)
+library(mlbench)
+library(tinytex)
+library(ggmap)
+library(gridExtra)
+library(scales)
+library(MASS)
+```
+
+```{r Read in Airfares}
+airfares <- read.csv("Airfares.csv", header = TRUE)
+airfares.dt <- setDT(airfares)
+subset_airlines <- airfares.dt[,!c(1,2,3,4,7,8,14,15)] 
+subset_airlines2 <- airfares.dt[,!c(1,2,3,4)]
+subset_airlines2.df <- setDF(subset_airlines2)
+```
+
+```{r Correlation Matrix Question 1}
+cor.mat.airfares <- round(cor(subset_airlines[,]),2)
+cor.mat.airfares
+corrplot(cor.mat.airfares,type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+```
+
+
+```{r Scatter Plots Question 1}
+ggplot(subset_airlines, aes(y = FARE, x = COUPON)) + 
+  geom_point(alpha = 0.6) +
+  geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95) +
+  ggtitle("FARE vs COUPON")
+ggplot(subset_airlines, aes(y = FARE, x = NEW))+
+  geom_point(alpha = 0.6)+
+  geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95)+
+  ggtitle("FARE vs NEW CARRIERS ON ROUTE")
+ggplot(subset_airlines, aes(y = FARE, x = HI))+
+  geom_point(alpha = 0.6)+
+  geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95)+
+  ggtitle("FARE vs HERFINDAHL INDEX")
+ggplot(subset_airlines, aes(y = FARE, x = S_INCOME))+
+  geom_point(alpha = 0.6)+
+  geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95)+
+  ggtitle("FARE vs S-INCOME")
+ggplot(subset_airlines, aes(y = FARE, x = E_INCOME))+
+  geom_point(alpha = 0.6)+
+  geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95)+
+  ggtitle("FARE vs E-INCOME")
+ggplot(subset_airlines, aes(y = FARE, x = S_POP))+
+  geom_point(alpha = 0.6)+
+  geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95)+
+  ggtitle("FARE vs S-POP")
+ggplot(subset_airlines, aes(y = FARE, x = E_POP))+
+  geom_point(alpha = 0.6)+
+  geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95)+
+  ggtitle("FARE vs E-POP")
+ggplot(subset_airlines, aes(y = FARE, x = DISTANCE))+
+  geom_point(alpha = 0.6)+
+  geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95)+
+  ggtitle("FARE vs DISTANCE")
+ggplot(subset_airlines, aes(y = FARE, x = PAX))+
+  geom_point(alpha = 0.6)+
+  geom_smooth(method="lm", se=TRUE, fullrange=FALSE, level=0.95)+
+  ggtitle("FARE vs PAX")
+```
+**Question 1:** The most correlated variable with FARE is DISTANCE according to the Correlation Matrix and the Scatter Plot which show strong correlations. COUPON has the second best correlation as indicated by the matrix and the plots.Both of these correlations are positive so the farther the DISTANCE or the more the COUPON value the more the FARE
+```{r Pivot Table Question 2}
+PivotVacation <- airfares.dt %>%
+        dplyr::select(VACATION,FARE) %>%
+        group_by(VACATION) %>%
+        summarise(Response_Count = length(VACATION),ResponseTotal = nrow(airfares.dt), ResponsePercent = percent(length(VACATION)/nrow(airfares.dt)), AvgFare = mean(FARE))
+
+PivotSW <- airfares.dt %>%
+        dplyr::select(SW,FARE) %>%
+        group_by(SW) %>%
+        summarise(Response_Count = length(SW),ResponseTotal = nrow(airfares.dt), ResponsePercent = percent(length(SW)/nrow(airfares.dt)), AvgFare = mean(FARE))
+
+PivotGate <- airfares.dt %>%
+        dplyr::select(GATE,FARE) %>%
+        group_by(GATE) %>%
+        summarise(Response_Count = length(GATE),ResponseTotal = nrow(airfares.dt), ResponsePercent = percent(length(GATE)/nrow(airfares.dt)), AvgFare = mean(FARE))
+
+PivotSlot <- airfares.dt %>%
+        dplyr::select(SLOT,FARE) %>%
+        group_by(SLOT) %>%
+        summarise(Response_Count = length(SLOT),ResponseTotal = nrow(airfares.dt), ResponsePercent = percent(length(SLOT)/nrow(airfares.dt)), AvgFare = mean(FARE))
+
+PivotVacation
+PivotSW
+PivotGate
+PivotSlot
+```
+**QUESTION 2:** The largest difference between the two responses is on the table for the SW variable. If Southwest Airlines flies a route the fare is almost half the cost of a route that Southwest does not fly. Compared with the other variables which have differences of less than 30% and most around 20%.This would indicate that Southwest chooses to fly lower cost routes leading to lower cost FARES for their customers.
+```{r Partitioning Data Set Question 3}
+set.seed(42)
+train.index <- sample(1:638, round(0.8*nrow(subset_airlines2)))
+train.df <- subset_airlines2[train.index, ]
+test.df <- subset_airlines2[-train.index, ]
+ 
+nrow(train.df)
+nrow(test.df)
+
+```
+
+```{r Linear Regression}
+airfares.lm <- lm(FARE ~ ., data = train.df)
+
+options(scipen = 999)
+summary(airfares.lm)
+
+```
+
+```{r Stepwise with Leaps Question 4}
+Stepwise <- regsubsets(FARE ~ ., data = train.df, nbest = 1, nvmax = dim(train.df)[2],
+                     method = "seqrep")
+Stepwise.Summary <- summary(Stepwise)
+Stepwise.Summary$which
+print("Adjusted R-Squared") 
+as.matrix(Stepwise.Summary$adjr2)
+
+print("BIC")  
+as.matrix(Stepwise.Summary$bic)
+
+print("Mallow's CP")  
+as.matrix(Stepwise.Summary$cp)
+
+
+
+```
+**Question 4:** The combination of the three metrics above leads us to the model that contains 11 variables. This model has a high Adjusted R-squared, a Mallow's CP close to what we would want. Ideally the Mallow's CP would be 12 but this Mallow's value is close. The 11th model does have a high BIC but it's not so high compared to most of the other models and the model with the 3rd lowest has the 3rd lowest Adjusted R-squared and the worst Mallow's CP. This model contains the variables: NEW, VACATIONYes, SWYes, HI, E_INCOME, S_POP, E_POP, SLOTFree, GATEFree, DISTANCE, and PAX. 
+
+```{r Exhaustive Search Question 5}
+Exhaustive <- regsubsets(FARE ~ ., data = train.df, nbest = 1, nvmax = dim(train.df)[2],
+                     method = "exhaustive")
+Exhaustive.Summary <- summary(Exhaustive)
+Exhaustive.Summary$which
+print("Adjusted R-Squared") 
+as.matrix(Exhaustive.Summary$adjr2)
+
+print("BIC")  
+as.matrix(Exhaustive.Summary$bic)
+
+print("Mallow's CP")  
+as.matrix(Exhaustive.Summary$cp)
+```
+**Question 5:** The results of this method are similar to that of the stepwise manner but they are slightly different. The exhaustive method leads us to believe that the model with 10 variables is the best model. It has an almost identical R-squared value to the models with more variables above it. Its Mallow's CP is almost exaclty what we want as a perfect Mallow's CP would be 11. As with the Stepwise model the BIC values are not ideal but they are not far off of most of the BIC values present. This model includes the variables: VACATION, SW, HI, E_INCOME, S_POP, E_POP, SLOT, GATE, DISTANCE, PAX.
+
+```{r Accuracy Question 6}
+print("Accuracy of Stepwise Regression")
+stepwise.lm <- lm(formula = FARE ~ NEW + VACATION + SW + HI + E_INCOME + S_POP + E_POP + SLOT + GATE + DISTANCE + PAX, data = train.df)
+stepwise.lm.predict <- predict(stepwise.lm, test.df)
+accuracy(stepwise.lm.predict, test.df$FARE)
+
+print("Accuracy of Exhaustive Regression")
+exhaustive.lm <- lm(formula = FARE ~ VACATION + SW + HI + E_INCOME + S_POP + E_POP + SLOT + GATE + DISTANCE + PAX, data = train.df)
+exhaustive.lm.predict <- predict(exhaustive.lm, test.df)
+accuracy(exhaustive.lm.predict, test.df$FARE)
+
+```
+**Question 6:**  Stepwise has a slightly lower RMSE than the Exhaustive method therefore the Stepwise method is slightly better than the Exhaustive Method.
+
+```{r Predicting Fare Question 7}
+
+```
+
+
+```{r Backward Question 9}
+airfares.lm.backselect <- step(airfares.lm, direction = "backward")
+summary(airfares.lm.backselect)  
+airfares.lm.backselect.pred <- predict(airfares.lm.backselect, test.df)
+accuracy(airfares.lm.backselect.pred, test.df$FARE)
+
+```
+
+
+
+```
+
