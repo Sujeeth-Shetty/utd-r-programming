@@ -1,0 +1,271 @@
+---
+title: "SVM Assignment"
+author: "Sujeeth Shetty"
+date: "2/10/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r loadPackage}
+pacman::p_load(e1071, ggplot2, caret, rmarkdown, corrplot)
+#search()
+theme_set(theme_classic())
+options(digits = 3)
+
+```
+
+## Read juice.csv
+
+```{r readFile, echo=FALSE}
+juice.df<- read.csv("juice.csv")
+
+dim(juice.df)
+str(juice.df)
+```
+
+```{r partition}
+
+set.seed(123)
+trainindex <- createDataPartition(juice.df$Purchase, p=0.8, list= FALSE)
+juice_train <- juice.df[trainindex, ]
+juice_test <- juice.df[-trainindex, ]
+
+```
+
+```{r SVM}
+
+svm_linear <- svm(Purchase~., data=juice_train, kernel = "linear", cost=0.01)
+summary(svm_linear)
+
+```
+**2) SVM with a linear kernel creates 446 support vectors out of 800 training points. Out of these, 224 belong to level CH and remaining 222 belong to level MM **
+
+
+```{r predictLinear}
+
+ ## Performance Evaluation train datapoints##
+pred_train <- predict(svm_linear, juice_train)
+
+# confusion matrix
+conf.matrix.train <- table(Predicted = pred_train, Actual = juice_train$Purchase)
+conf.matrix.train
+  
+# Training Error
+1-(sum(diag(conf.matrix.train))) / sum(conf.matrix.train)
+
+
+## Performance Evaluation Test datapoints##
+pred_test <- predict(svm_linear, juice_test)
+
+# confusion matrix
+conf.matrix.test <- table(Predicted = pred_test, Actual = juice_test$Purchase)
+conf.matrix.test
+  
+# Test Error
+1-(sum(diag(conf.matrix.test))) / sum(conf.matrix.test)
+```
+**3) Training Error Rate : 17% ; Test Error Rate: 16.5% **
+
+
+```{r tuneLinear}
+set.seed(123)
+tune_linear_svm <- tune(svm, Purchase~., data = juice_train,kernel = "linear",
+     ranges = list(cost = 10^seq(-2,1, by=0.25)))
+
+summary(tune_linear_svm)
+
+
+```
+**4) Tuning shows the optimal cost is 3.1623 **
+
+```{r tunePredLinear}
+
+## Best SVM Model ##
+best_linear_svm <- tune_linear_svm$best.model
+summary(best_linear_svm)
+
+#prediction for train datapoint
+best_train_pred <- predict(best_linear_svm, juice_train)
+
+# confusion matrix
+conf.matrix.train <- table(Predicted = best_train_pred, Actual = juice_train$Purchase)
+conf.matrix.train
+
+# Training Error
+1-(sum(diag(conf.matrix.train))) / sum(conf.matrix.train)
+
+
+#prediction for test datapoint
+best_test_pred <- predict(best_linear_svm, juice_test)
+
+# confusion matrix
+conf.matrix.test <- table(Predicted = best_test_pred, Actual = juice_test$Purchase)
+conf.matrix.test
+
+#Test Error
+1-(sum(diag(conf.matrix.test))) / sum(conf.matrix.test)
+
+```
+**5) The training error decreases to 16.66% and test error slightly increases to 17.5% **
+
+-----------------------------------------------------------------------------------------------------
+```{r SVMRadial}
+
+svm_radial <- svm(Purchase~., data=juice_train, kernel = "radial", cost=0.01)
+summary(svm_radial)
+
+```
+**8) SVM with a radial kernel creates 626 support vectors out of 800 training points. Out of these, 312 belong to level CH and remaining 314 belong to level MM **
+
+
+```{r predictRadial}
+
+ ## Performance Evaluation train datapoints##
+pred_train <- predict(svm_radial, juice_train)
+
+# confusion matrix
+conf.matrix.train <- table(Predicted = pred_train, Actual = juice_train$Purchase)
+conf.matrix.train
+  
+# Training Error
+1-(sum(diag(conf.matrix.train))) / sum(conf.matrix.train)
+
+
+## Performance Evaluation Test datapoints##
+pred_test <- predict(svm_radial, juice_test)
+
+# confusion matrix
+conf.matrix.test <- table(Predicted = pred_test, Actual = juice_test$Purchase)
+conf.matrix.test
+  
+# Test Error
+1-(sum(diag(conf.matrix.test))) / sum(conf.matrix.test)
+```
+**8) Training Error Rate : 39% ; Test Error Rate: 39% **
+
+
+```{r tuneRadial}
+set.seed(123)
+tune_radial_svm <- tune(svm, Purchase~., data = juice_train,kernel = "radial",
+     ranges = list(cost = 10^seq(-2,1, by=0.25)))
+
+summary(tune_radial_svm)
+
+
+```
+**8) Tuning shows the optimal cost is 0.5623 **
+
+```{r tunePredRadial}
+
+## Best SVM Model ##
+best_radial_svm <- tune_radial_svm$best.model
+summary(best_radial_svm)
+
+#prediction for train datapoint
+best_train_pred <- predict(best_radial_svm, juice_train)
+
+# confusion matrix
+conf.matrix.train <- table(Predicted = best_train_pred, Actual = juice_train$Purchase)
+conf.matrix.train
+
+# Training Error
+1-(sum(diag(conf.matrix.train))) / sum(conf.matrix.train)
+
+
+#prediction for test datapoint
+best_test_pred <- predict(best_radial_svm, juice_test)
+
+# confusion matrix
+conf.matrix.test <- table(Predicted = best_test_pred, Actual = juice_test$Purchase)
+conf.matrix.test
+
+#Test Error
+1-(sum(diag(conf.matrix.test))) / sum(conf.matrix.test)
+
+```
+**8) The training error decreases to 15.6% and test error slightly increases to 15% which is better than linear kernel**
+
+----------------------------------------------------------------------------------------------------
+
+```{r SVMPoly}
+
+svm_poly <- svm(Purchase~., data=juice_train, kernel = "polynomial", cost=0.01, degree=2)
+summary(svm_poly)
+
+```
+**9) SVM with a polynomial kernel creates 629 support vectors out of 800 training points. Out of these, 312 belong to level CH and remaining 317 belong to level MM **
+
+
+```{r predictPoly}
+
+ ## Performance Evaluation train datapoints##
+pred_train <- predict(svm_poly, juice_train)
+
+# confusion matrix
+conf.matrix.train <- table(Predicted = pred_train, Actual = juice_train$Purchase)
+conf.matrix.train
+  
+# Training Error
+1-(sum(diag(conf.matrix.train))) / sum(conf.matrix.train)
+
+
+## Performance Evaluation Test datapoints##
+pred_test <- predict(svm_poly, juice_test)
+
+# confusion matrix
+conf.matrix.test <- table(Predicted = pred_test, Actual = juice_test$Purchase)
+conf.matrix.test
+  
+# Test Error
+1-(sum(diag(conf.matrix.test))) / sum(conf.matrix.test)
+```
+**9) Training Error Rate : 39% ; Test Error Rate: 39% **
+
+
+```{r tunePoly}
+set.seed(123)
+tune_poly_svm <- tune(svm, Purchase~., data = juice_train,kernel = "polynomial", degree=2,
+     ranges = list(cost = 10^seq(-2,1, by=0.25)))
+
+summary(tune_poly_svm)
+
+
+```
+**9) Tuning shows the optimal cost is 1 **
+
+```{r tunePredPoly}
+
+## Best SVM Model ##
+best_poly_svm <- tune_poly_svm$best.model
+summary(best_poly_svm)
+
+#prediction for train datapoint
+best_train_pred <- predict(best_poly_svm, juice_train)
+
+# confusion matrix
+conf.matrix.train <- table(Predicted = best_train_pred, Actual = juice_train$Purchase)
+conf.matrix.train
+
+# Training Error
+1-(sum(diag(conf.matrix.train))) / sum(conf.matrix.train)
+
+
+#prediction for test datapoint
+best_test_pred <- predict(best_poly_svm, juice_test)
+
+# confusion matrix
+conf.matrix.test <- table(Predicted = best_test_pred, Actual = juice_test$Purchase)
+conf.matrix.test
+
+#Test Error
+1-(sum(diag(conf.matrix.test))) / sum(conf.matrix.test)
+
+```
+**9) The training error decreases to 18.1% and test error slightly increases to 18.5% which is worse than radial & linear kernel**
+
+**10) Overall, radial basis kernel produced minimum misclassification error on both train and test data.**
+
