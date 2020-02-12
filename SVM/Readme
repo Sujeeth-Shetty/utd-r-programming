@@ -1,0 +1,30 @@
+Data:
+The “juice.csv” data contains purchase information for Citrus Hill or Minute Maid orange juice. A description of the variables follows.
+1. Purchase: A factor with levels CH and MM indicating whether the customer purchased Citrus Hill or Minute Maid Orange Juice
+2. WeekofPurchase: Week of purchase
+3. StoreID: Store ID
+4. PriceCH: Price charged for CH
+5. PriceMM: Price charged for MM
+6. DiscCH: Discount offered for CH
+7. DiscMM: Discount offered for MM
+8. SpecialCH: Indicator of special on CH
+9. SpecialMM: Indicator of special on MM
+10. LoyalCH: Customer brand loyalty for CH
+11. SalePriceMM: Sale price for MM
+12. SalePriceCH: Sale price for CH
+13. PriceDiff: Sale price of MM less sale price of CH
+14. Store7: A factor with levels No and Yes indicating whether the sale is at Store 7
+15. PctDiscMM: Percentage discount for MM
+16. PctDiscCH: Percentage discount for CH
+17. ListPriceDiff: List price of MM less list price of CH
+18. STORE: Which of 5 possible stores the sale occured at
+
+Problem Statement:
+1. Create a training set containing a random sample of 80% of the observations in the “juice.csv” data set using createDataPartition(). Create a test data set containing the remaining observations.
+2. Fit an SVM model with a linear kernel to the training data using cost=0.01. Use Purchase as the response and the other variables as predictors in this model. Use the summary() function to produce summary statistics, and describe the results obtained.
+3. What are the training and test error rates?
+4. Use the tune() function to select an optimal cost. Consider values in the range 0.01 to 10.
+5. Compute and report the training and test error rates using this new value for cost.
+6. Repeat parts (2.) through (5.) using a support vector machine with a radial kernel. Use the default value for gamma.
+7. Repeat parts (2.) through (5.) using a support vector machine with a polynomial kernel. Set degree=2.
+8. Overall, which approach seems to give the best results on this data?
