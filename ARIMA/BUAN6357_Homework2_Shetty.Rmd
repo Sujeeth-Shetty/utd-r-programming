@@ -1,0 +1,89 @@
+---
+title: "Arima Assignment"
+author: "Sujeeth Shetty"
+date: "2/23/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+##wmurders data set from the fpp2 package
+
+```{r loadpackages}
+pacman::p_load(fpp2, urca, gridExtra)
+theme_set(theme_classic())
+```
+
+
+```{r acf}
+#before difference
+autoplot(wmurders) + 
+  ylab("Total Murdered women") + xlab("Year")
+ggAcf(wmurders) 
+
+#After Difference
+autoplot(diff(wmurders)) + ylab("Total Murdered women") + xlab("Year")
+ggAcf(diff(wmurders))  
+
+#Since there is no seasonality i wont be performing Seasonal difference.
+```
+
+**There is trend in the data, hence the data might not be stationary. Also, looking at the ACF plot, it appears we need differencing to reduce trend**
+
+
+```{r}
+##Null Hypothesis the data is stationary
+summary(ur.kpss(wmurders))
+#test-statistic is higher, we gonna reject null hyp that it is a stationary
+
+# Number of differences needed to make the data stationary
+ndiffs(wmurders)
+
+wmurders %>% diff(differences=2) %>% ur.kpss() %>% summary()
+#after taking two differences, the series seems to be stationary 
+
+
+```
+**I would not include a constant since we are computing second-order differences.**
+
+```{r ArimaModel}
+# Specify (p, d, q) - (1,2,0)
+
+(fit1 <- Arima(wmurders, order = c(1,2,0)))
+checkresiduals(fit1)
+
+
+# Specify (p, d, q) - (2,2,0)
+
+(fit2 <- Arima(wmurders, order = c(2,2,0)) )  
+checkresiduals(fit2)
+
+# Specify (p, d, q) - (3,2,0)
+(fit3 <- Arima(wmurders, order = c(3,2,0)) )  
+checkresiduals(fit3)
+
+
+```
+**I have selected model3 with (p,d,q) value (2,2,0) based on the BIC value & p-value.**
+**For the model 3, all lags within ACF plot appear to be within boundaries, but the residuals could be more normal. Overall, I think it is satisfactory.**
+
+
+```{r forecast}
+forecast(fit3,h=3)
+
+autoplot(forecast(fit3,h=3))
+```
+```{r autoarima}
+(fit4<-auto.arima(wmurders))
+checkresiduals(fit4)
+
+(fit5<-auto.arima(wmurders, stepwise=FALSE,
+           approximation=FALSE, seasonal = FALSE))
+checkresiduals(fit5)
+
+```
+**auto.arima() didn't give the same model. Even though the BIC value of auto.arima() ARIMA(1,2,1) is lower and all the lags are within boundaries compared to the model I have choosen, the p-value is higher than the 5% significant level. Hence the model isn't significant. So I'll pick my model ARIMA(2,2,0) for forecasting.** 
