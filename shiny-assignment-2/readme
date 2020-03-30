@@ -1,1 +1,14 @@
-
+Shiny Assignment 2
+Problem Statement:
+Use the “ebola_2014_2016.csv” file to create a Shiny app that summarizes
+information about the Western African Ebola virus epidemic. Each row in this data
+set contains a report from each region or location for each day. Each column
+represents the number of cases reported from each country or region
+Feel free to present the information in the way you think would be most effective.
+One possibility would be to create a dashboard that would include the following
+information, among others:
+1. The spread of the virus over time
+2. The distribution of the virus across countries on a map
+3. The fatality and recovery rate of those infected by the virus
+For additional ideas on how to present the information check out the current
+COVID-19 dashboard available at https://coronavirus.jhu.edu/map.html.
