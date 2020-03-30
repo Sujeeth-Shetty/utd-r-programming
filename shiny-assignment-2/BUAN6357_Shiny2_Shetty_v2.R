@@ -26,13 +26,14 @@ load_data<- function(){
   data$date <- as.Date(data$date, format="%m/%d/%Y")
   data[is.na(data)] = 0
   data<-ddply(data,c("country_cd","country","date","Latitude","Longitude"),numcolwise(sum))
-  #data$recovered<-(data$total_cases - data$total_deaths)
-  
+  data$country <- as.character(data$country)
   return (data)
 }
 
 data_atDate <- function(inputDate) {
-  ebola.df[which(ebola.df$date <= inputDate),] %>%
+  out <- tryCatch(
+    {
+  ebola.df[which(ebola.df$date == inputDate),] %>%
     group_by(country_cd,country,date) %>%
     filter(suspected_cases > 0 |
              probable_cases > 0 |
@@ -41,7 +42,24 @@ data_atDate <- function(inputDate) {
              probable_deaths > 0 |
              confirmed_deaths > 0 
     )
+    },
+  error=function(cond){
+    message("Selected date is invalid")
+    message(cond)
+    retunr (NA)
+  },warning=function(cond){
+    message("selected date is invalid")
+    message(cond)
+    return (NA)
+  },finally={
+  
+  }
+  )
+  return (out)
+  
+  
 }
+
 
 summariseData <- function(df, groupBy){
   df%>%
@@ -87,7 +105,7 @@ totalRecovered<- function(df){
 
 addLabel <- function(data) {
   data$label <- paste0(
-    '<b>', ifelse(is.na(data$`country`), data$country,data$country), '</b><br>
+    '<b>', (data$country), '</b><br>
     <table style="width:120px;">
     <tr><td>Cases:</td><td align="right">', data$total_cases, '</td></tr>
     <tr><td>Deaths:</td><td align="right">', data$total_deaths, '</td></tr>
@@ -105,14 +123,19 @@ capFirst <- function(x) {
 }
 
 ebola.df<-load_data()
-
-
+str(ebola.df)
+ref<- ebola.df$country
+summary(ebola.df)
+is.na(ebola.df)
 #-------------------UI------------------------------------#
 ui<- dashboardPage( 
   dashboardHeader(title = "Western African Ebola Virus epidemic"),
   dashboardSidebar(
     sliderInput("timeSlider", "Select Date",
-                min = min(ebola.df$date), max = max(ebola.df$date), value = max(ebola.df$date), animate = animationOptions(loop = TRUE)
+                min = min(ebola.df$date), 
+                max = max(ebola.df$date), 
+                value = max(ebola.df$date), 
+                animate = animationOptions(loop = TRUE)
     ),
     sidebarMenu(
       menuItem("Overview", tabName = "overview"),
@@ -171,7 +194,6 @@ ui<- dashboardPage(
 
 #----------------------Server---------------#
 server <- function(input,output){
-  #data<-data_atDate(input$timeSlider)
 
   value_confirmed <- reactive({
     data <- data_atDate(input$timeSlider)
@@ -229,8 +251,7 @@ server <- function(input,output){
     req(input$timeSlider, input$overview_map_zoom)
     zoomLevel               <- input$overview_map_zoom
     data                    <- data_atDate(input$timeSlider) %>% addLabel()
-    #data <- ebola.df
-    
+
     leafletProxy("overview_map", data = data) %>%
       clearMarkers() %>%
       addCircleMarkers(
@@ -241,7 +262,7 @@ server <- function(input,output){
         fillOpacity  = 0.5,
         label        = ~label,
         labelOptions = labelOptions(textsize = 15),
-        group        = "Confirmed"
+        group        = "Cases"
       ) %>%
       addCircleMarkers(
         lng          = ~Longitude,
@@ -252,7 +273,7 @@ server <- function(input,output){
         fillOpacity  = 0.5,
         label        = ~label,
         labelOptions = labelOptions(textsize = 15),
-        group        = "Active"
+        group        = "Deaths"
       ) 
   })
   
@@ -268,8 +289,6 @@ server <- function(input,output){
                                            options       = layersControlOptions(collapsed = FALSE)
                                          ) %>%
                                          hideGroup("Deaths") )
-  
-  #case_evolution_by_date, case_evolution_date_breakout, case_evolution_by_country, case_evolution_by_country_breakout
   
   output$case_evolution_by_date <- renderPlotly({
     data<-summariseData(ebola.df,"date")%>% gather(var, value, Cases:Recovered)
@@ -311,7 +330,7 @@ server <- function(input,output){
   
   output$case_evolution_by_country <- renderPlotly({
     #data<-ebola.df%>%select(country,date,total_cases)%>%group_by(country) %>%gather(var, value, total_cases)
-    data<-summariseData(ebola.df,"country")%>%select(country,Cases)
+    data<-summariseData(data_atDate(input$timeSlider),"country")%>%select(country,Cases)
     p <- plot_ly(data = data, x = ~country, y = ~log(Cases), color = ~country, type = 'bar',text = ~paste("Country: ", country, '<br>Total Cases:', Cases)) %>%
       layout(
         yaxis = list(title = "# Cases"),
@@ -324,10 +343,10 @@ server <- function(input,output){
   
   output$case_evolution_by_country_breakout <- renderPlotly({
     #data<-ebola.df%>%select(country,date,total_cases)%>%group_by(country) %>%gather(var, value, total_cases)
-    data<-summariseData(ebola.df,"country")%>%select(country,Deaths)
+    data<-summariseData(data_atDate(input$timeSlider),"country")%>%select(country,Deaths)
     p <- plot_ly(data = data, x = ~country, y = ~log(Deaths), color = ~country, type = 'bar',text = ~paste("Country: ", country, '<br>Total Deaths:', Deaths)) %>%
       layout(
-        yaxis = list(title = "# Cases"),
+        yaxis = list(title = "# Deaths"),
         xaxis = list(title = "Country")
       )
     
