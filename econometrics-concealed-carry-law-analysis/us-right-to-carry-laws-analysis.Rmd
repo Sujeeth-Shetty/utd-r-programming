@@ -1,0 +1,386 @@
+---
+title: "Right to Carry Laws(shall-issue) Analysis"
+author: "Sujeeth Shetty"
+date: "11/26/2020"
+output: pdf_document
+---
+
+```{r loadlib, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load('readstata13','ggplot2','dplyr','grid','ggpubr','car','moments','treemap','psych','plm','lmtest','broom','foreign','gplots')
+
+```
+
+
+```{r readfile }
+guns <- read.dta13("guns.dta", convert.dates = TRUE, 
+                  convert.factors = TRUE,
+                  missing.type = FALSE,
+                  convert.underscore = FALSE)
+
+nrow(guns)
+colnames(guns)
+summary(guns)
+
+sum(is.na(guns$shall))
+
+```
+
+
+```{r eda1 }
+#convert to character
+guns$stateid <- as.character(guns$stateid)
+guns$shall <- as.character(guns$shall)
+#set stateid with consecutive numbers
+length(unique(guns$stateid))==max(guns$stateid)
+guns %>% group_by(as.character(year)) %>% summarise(state=n_distinct(stateid)) %>% filter(state<51)
+
+```
+
+```{r}
+plotmeans(vio ~ year, main="Heterogeineity across countries", data=guns)
+```
+
+```{r eda2 }
+#number of states where shall-issue law is introduced
+states_with_shall <- guns %>% filter(shall==1) 
+length(unique(states_with_shall$stateid))
+```
+```{r eda3 }
+
+shall_start<-guns %>% filter(shall==1) %>% group_by(stateid) %>% summarise(minyear=min(year)) %>% arrange(as.numeric(minyear))
+h<-hist(shall_start$minyear,xlab="year",col = "green",breaks = seq(77,99,1))
+#17 out of 29 states implemented the shall law after 1990
+```
+```{r normalplot }
+
+normalplot <- function(dataset=""){
+  n <- dim(dataset)[2]
+  for(i in 1:n){
+    plot(density(c(dataset[,i])), main = "")
+    title(main = paste(colnames(dataset)[i],"skewness: ",round(skewness(dataset[i]),2), "kurtosis: ",round(kurtosis(dataset[i]),2)))
+  }
+}
+par(mfrow=c(3,2))
+par(mar=c(1,2,3,1))
+normalplot(guns[,!colnames(guns) %in% c("shall","stateid","year")])
+par(mfrow=c(1,1))
+```
+
+
+```{r corrplot }
+
+guns1 <- guns
+
+guns1$vio<-log(guns1$vio)
+guns1$incarc_rate<-log(guns1$incarc_rate)
+guns1$density<-log(guns1$density) 
+
+
+#Pairwise Correlation - post data transformation
+## pw1064 and pb1064 are highly correlated (-0.98)
+pairs.panels(guns1[,!colnames(guns1) %in% c("shall","stateid","year")],hist.col="yellow",alpha=.05,lm=TRUE,density=TRUE)
+```
+```{r hetero, fig.width = 12}
+#heterogenity acrross years
+plotmeans(vio ~ year, main="Heterogeineity across Years", data=guns)
+plotmeans(mur ~ year, main="Heterogeineity across Years", data=guns)
+
+plotmeans(rob ~ year, main="Heterogeineity across Years", data=guns)
+
+
+```
+
+```{r pooledReg }
+#Polled regression
+guns2<-pdata.frame(guns, index = c("stateid","year"))
+
+#violence
+#pooled
+model_vio_pooled<-plm(log(vio)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064,data=guns2, model="pooling")
+summary(model_vio_pooled)
+tidy(model_vio_pooled)
+```
+```{r combineHyp }
+
+#combined significance test
+Hnull <- c("pb1064=0","pw1064=0")
+linearHypothesis(model_vio_pooled,Hnull)
+```
+```{r}
+
+#plots for heteroscedasticity
+res <- residuals(model_vio_pooled)
+yhat <- fitted(model_vio_pooled)
+#plot(log(guns2$incarc_rate),res, x) +abline(h =0)
+#plot(log(guns2$incarc_rate),guns2$vio-yhat,ylab="Residuals", xlab="Waiting Time", main="Old Faithful Eruptions") 
+#plot(vio_pooled, which=1, col=c("blue"))
+print(length(log(res)))
+```
+
+```{r}
+#remove pw1064
+model_vio_pooled_2<-plm(log(vio)~log(incarc_rate)+pm1029+pop+avginc+log(density)+shall,data=guns2, model="pooling")
+coeftest(model_vio_pooled_2, vcov=vcovHC(model_vio_pooled_2,type="HC0",cluster="group"))
+```
+```{r pooled_mur}
+#Pooled Regression for Murder Rate
+
+model_mur_pooled<-plm(log(mur)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064,data=guns2, model="pooling")
+summary(model_mur_pooled)
+tidy(model_mur_pooled)
+
+Hnull <- c("pb1064=0","pw1064=0")
+linearHypothesis(model_mur_pooled,Hnull)
+#both the varibales are joinlty significant
+
+Hnull1 <- c("avginc=0")
+linearHypothesis(model_mur_pooled,Hnull1)
+#avginc is significant
+
+```
+```{r pooled_rob}
+#Pooled Regression for Robery Rate
+
+model_rob_pooled<-plm(log(rob)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064,data=guns2, model="pooling")
+summary(model_rob_pooled)
+#tidy(model_rob_pooled)
+
+Hnull <- c("pb1064=0","pw1064=0")
+linearHypothesis(model_rob_pooled,Hnull)
+#both the varibales are joinlty significant
+
+Hnull1 <- c("avginc=0")
+linearHypothesis(model_rob_pooled,Hnull1)
+#its significant
+
+```
+```{r fe_vio}
+#fixed effects 
+# time effect ignored
+model_vio_fixed_e<-plm(log(vio)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064
+                ,data=guns2, 
+                model="within")
+summary(model_vio_fixed_e)
+
+#test if economic indicators have no explanatory power
+Hnull1 <- c("avginc=0")
+linearHypothesis(model_vio_fixed_e,Hnull1)
+#avginc is significant 
+
+#test if economic indicators have no explanatory power
+Hnull2 <- c("pb1064=0","pw1064=0") 
+linearHypothesis(model_vio_fixed_e,Hnull2)
+#avginc is not significant 
+
+#test if economic indicators have no explanatory power
+Hnull3 <- c("log(density)=0")
+linearHypothesis(model_vio_fixed_e,Hnull3)
+#avginc is significant 
+model_vio_fixed_e_2<-plm(log(vio)~log(incarc_rate)+pb1064+pm1029+pop+log(density)+shall+pw1064
+                ,data=guns2, 
+                model="within")
+summary(model_vio_fixed_e_2)
+
+```
+
+```{r fe_mur}
+#fixed effects 
+# time effect ignored
+model_mur_fixed_e<-plm(log(mur)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064
+                ,data=guns2, 
+                model="within")
+summary(model_mur_fixed_e)
+
+#test if economic indicators have no explanatory power
+Hnull1 <- c("avginc=0")
+linearHypothesis(model_mur_fixed_e,Hnull1)
+#avginc is significant 
+
+#test if economic indicators have no explanatory power
+Hnull2 <- c("pb1064=0","pw1064=0") 
+linearHypothesis(model_mur_fixed_e,Hnull2)
+#jointly significant 
+
+#test if economic indicators have no explanatory power
+Hnull3 <- c("log(density)=0")
+linearHypothesis(model_mur_fixed_e,Hnull3)
+#density is significant 
+
+```
+```{r fe_rob}
+
+#fixed effects 
+# time effect ignored
+model_rob_fixed_e<-plm(log(rob)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064
+                ,data=guns2, 
+                model="within")
+summary(model_rob_fixed_e)
+
+#test if economic indicators have no explanatory power
+Hnull1 <- c("avginc=0")
+linearHypothesis(model_rob_fixed_e,Hnull1)
+#avginc is significant 
+
+#test if economic indicators have no explanatory power
+Hnull2 <- c("pb1064=0","pw1064=0") 
+linearHypothesis(model_rob_fixed_e,Hnull2)
+#avginc is significant 
+
+#test if economic indicators have no explanatory power
+Hnull3 <- c("log(density)=0")
+linearHypothesis(model_rob_fixed_e,Hnull3)
+
+
+model_rob_fixed_e_2<-plm(log(vio)~log(incarc_rate)+pb1064+pm1029+pop+shall+pw1064
+                ,data=guns2, 
+                model="within")
+summary(model_rob_fixed_e_2)
+
+```
+
+
+
+```{r serialcorr}
+
+pbgtest(model_vio_fixed_e)
+#there is serial correlation
+
+pbgtest(model_vio_fixed_e_2)
+
+pbgtest(model_mur_fixed_e)
+
+pbgtest(model_rob_fixed_e)
+
+
+
+```
+
+
+```{r hac}
+
+class(guns$stateid)
+coeftest(model_vio_fixed_e, vcov. = vcovHC, type = "HC1")
+
+```
+
+```{r fetwt_vio}
+#fixed effects with time
+
+model_vio_fixed_et <- plm(log(vio)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064+factor(year)-1, data=guns2,
+                  model="within")
+summary(model_vio_fixed_et)
+
+
+Hnull <- c("pb1064=0","pop=0","avginc=0","pw1064=0")
+linearHypothesis(model_vio_fixed_et,Hnull)
+
+model_vio_fixed_et_2 <- plm(log(vio)~log(incarc_rate)+pm1029+log(density)+shall+factor(year)-1, data=guns2,
+                  model="within")
+summary(model_vio_fixed_et_2)
+```
+
+
+```{r pftest}
+#testing time fixed effects. The null is that no time fixed effects needed
+pFtest(model_vio_fixed_et_2, model_vio_fixed_e_2)
+#pv-value <0.05 then use time fixed effect 
+
+```
+
+```{r fewt_mur}
+
+#fixed effects with time
+
+model_mur_fixed_et <- plm(log(mur)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064+factor(year)-1, data=guns2,
+                  model="within")
+summary(model_mur_fixed_et)
+
+
+Hnull <- c("pb1064=0","pop=0","avginc=0","pw1064=0")
+linearHypothesis(model_mur_fixed_et,Hnull)
+
+model_mur_fixed_et_2 <- plm(log(mur)~log(incarc_rate)+pm1029+log(density)+shall+factor(year)-1, data=guns2,
+                  model="within")
+summary(model_mur_fixed_et_2)
+```
+
+```{r pftest_mur}
+#testing time fixed effects. The null is that no time fixed effects needed
+pFtest(model_mur_fixed_et_2, model_mur_fixed_e)
+#pv-value <0.05 then use time fixed effect 
+
+```
+
+
+```{r fewt_rob}
+
+#fixed effects with time
+
+model_rob_fixed_et <- plm(log(rob)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064+factor(year)-1, data=guns2,
+                  model="within")
+summary(model_rob_fixed_et)
+
+
+Hnull <- c("pb1064=0","pop=0","avginc=0","pw1064=0")
+linearHypothesis(model_rob_fixed_et,Hnull)
+
+model_rob_fixed_et_2 <- plm(log(rob)~log(incarc_rate)+pm1029+log(density)+shall+factor(year)-1, data=guns2,
+                  model="within")
+summary(model_rob_fixed_et_2)
+```
+
+```{r pftest_rob}
+#testing time fixed effects. The null is that no time fixed effects needed
+pFtest(model_rob_fixed_et_2, model_rob_fixed_e)
+#pv-value <0.05 then use time fixed effect 
+```
+
+
+```{r re_vio }
+model_vio_re  <- plm(log(vio)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064,model="random",data=guns2)
+summary(model_vio_re)
+
+
+```
+
+
+```{r husman_vio }
+
+phtest(model_vio_fixed_et_2,model_vio_re) # hausman test
+#the prefered model is FE with Time variant
+
+```
+
+
+```{r re_mur }
+
+model_mur_re  <- plm(log(mur)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064,model="random",data=guns2)
+summary(model_mur_re)
+
+```
+
+
+```{r husman_mur }
+
+phtest(model_mur_fixed_et_2,model_mur_re) # hausman test
+#the prefered model is FE with Time variant
+
+
+```
+
+
+```{r re_rob }
+model_rob_re  <- plm(log(rob)~log(incarc_rate)+pb1064+pm1029+pop+avginc+log(density)+shall+pw1064,model="random",data=guns2)
+summary(model_rob_re)
+```
+
+
+```{r husman_rob }
+
+phtest(model_rob_fixed_et,model_rob_re) # hausman test
+#the prefered model is FE with Time variant
+
+
+```
